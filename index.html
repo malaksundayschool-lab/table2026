@@ -97,21 +97,66 @@
     .error-state { color: #b91c1c; background: #fef2f2; border-right: 4px solid #ef4444; }
     .empty-state { color: #475569; }
 
-    .place-card {
+    /* منطقة (القسم) - المستوى الأول */
+    .zone-card {
       background: white;
       border-radius: 20px;
-      margin-bottom: 1.2rem;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.05);
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       overflow: hidden;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
+    }
+    .zone-header {
+      background: linear-gradient(135deg, #1e4a6e, #2c7da0);
+      color: white;
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    .zone-header:hover {
+      background: linear-gradient(135deg, #2c7da0, #1e4a6e);
+    }
+    .zone-header .arrow {
+      font-size: 1.2rem;
+      transition: transform 0.3s ease;
+    }
+    .zone-header.open .arrow {
+      transform: rotate(180deg);
+    }
+    
+    /* الأماكن (المستوى الثاني) - مختفية في البداية */
+    .places-container {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease-out;
+      background: #f9fbfd;
+    }
+    .places-container.open {
+      max-height: 2000px;
+      transition: max-height 0.5s ease-in;
+    }
+    
+    .place-card {
+      background: white;
+      margin: 0.8rem 1rem;
+      border-radius: 16px;
+      padding: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       border: 1px solid #eef2f6;
     }
     .place-title {
-      background: #f9fbfd;
-      padding: 0.9rem 1.2rem;
+      background: #f8fafc;
+      padding: 0.8rem 1.2rem;
       font-weight: 800;
-      font-size: 1.1rem;
+      font-size: 1rem;
       color: #0f2b3d;
-      border-right: 5px solid #2c7da0;
+      border-right: 4px solid #2c7da0;
       border-bottom: 1px solid #eef2f6;
     }
     .schedule-list {
@@ -121,7 +166,7 @@
       display: flex;
       align-items: flex-start;
       gap: 1rem;
-      padding: 0.8rem 1.2rem;
+      padding: 0.7rem 1.2rem;
       border-bottom: 1px solid #f0f4f9;
     }
     .slot-time {
@@ -130,20 +175,20 @@
       color: #1e4a6e;
       padding: 0.2rem 0.7rem;
       border-radius: 30px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 700;
-      min-width: 110px;
+      min-width: 105px;
       text-align: center;
-      line-height: 1.4;
     }
     .slot-activity {
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       color: #1e293b;
       flex: 1;
     }
     @media (max-width: 550px) {
-      .slot-item { flex-direction: column; gap: 0.4rem; }
+      .slot-item { flex-direction: column; gap: 0.3rem; }
       .slot-time { align-self: flex-start; }
+      .zone-header { font-size: 1rem; padding: 0.8rem 1.2rem; }
     }
   </style>
 </head>
@@ -151,7 +196,7 @@
 
 <div class="fest-header">
   <h1>🗓️ جدول المهرجان 2026</h1>
-  <p>اختر اليوم لعرض الأماكن والفعاليات حسب التوقيت</p>
+  <p>اختر اليوم ← اضغط على المنطقة لرؤية الأماكن والفعاليات</p>
 </div>
 
 <div class="days-tabs" id="daysTabs"></div>
@@ -161,10 +206,8 @@
 
 <script>
   // ======================== إعدادات جدول جوجل =========================
-  // ⚠️ هام: غيري هذا الرابط بعد نشر جدول جوجل للعامة
   const PUBLISHED_SHEET_ID = '2PACX-1vTdDkDQecOWbCYWDBkM_cwIUcuLnLmUdd-XpQygB4hONKZVWNv0D9dSHMksJM-0SFcoX3eg-NudZ8_u';
   
-  // أيام الأسبوع وأرقام الـ gid - غيري الأرقام حسب جدولك الفعلي
   const DAYS_CONFIG = [
     { name: 'الأحد',     gid: '850760714' },
     { name: 'الاثنين',   gid: '932787312' },
@@ -175,17 +218,16 @@
     { name: 'السبت',     gid: '981087448' }
   ];
   
-  // دالة لتحويل الساعة من 24 إلى 12 بصيغة AM/PM
+  // تحويل الساعة من 24 إلى 12
   function convertTo12Hour(hour24) {
-    let hour = parseInt(hour24);
-    let minute = hour24.includes(':') ? hour24.split(':')[1] : '00';
+    let [hour, minute] = hour24.split(':');
+    hour = parseInt(hour);
     let period = hour >= 12 ? 'م' : 'ص';
     let hour12 = hour % 12;
     if (hour12 === 0) hour12 = 12;
     return `${hour12}:${minute} ${period}`;
   }
 
-  // التوقيتات (الأعمدة من C إلى O) - كلها بصيغة 24 عشان التحويل
   const TIME_SLOTS = [
     { col: 2, start: '9:00', end: '10:00' },
     { col: 3, start: '10:00', end: '11:00' },
@@ -228,7 +270,7 @@
   async function loadDaySchedule(dayIdx) {
     const container = document.getElementById('mainContent');
     if (dataCache[dayIdx]) {
-      renderSchedule(dataCache[dayIdx]);
+      renderZones(dataCache[dayIdx]);
       return;
     }
 
@@ -252,10 +294,10 @@
         return;
       }
       dataCache[dayIdx] = parsedRows;
-      renderSchedule(parsedRows);
+      renderZones(parsedRows);
     } catch (err) {
       console.error(err);
-      container.innerHTML = `<div class="error-state">❌ فشل تحميل البيانات. تأكدي من نشر الجدول للعامة (ملف → مشاركة → نشر على الويب)</div>`;
+      container.innerHTML = `<div class="error-state">❌ فشل تحميل البيانات. تأكدي من نشر الجدول للعامة</div>`;
     }
   }
 
@@ -284,7 +326,6 @@
     return rows;
   }
 
-  // دالة لدمج المواعيد المتتالية لنفس النشاط
   function mergeConsecutiveSlots(slots) {
     if (slots.length === 0) return [];
     
@@ -297,12 +338,9 @@
     
     for (let i = 1; i < slots.length; i++) {
       const currentSlot = slots[i];
-      // لو نفس النشاط والتوقيت متتالي (نهاية السابق = بداية التالي)
       if (currentSlot.activity === currentGroup.activity && currentSlot.start === currentGroup.endTime) {
-        // ندمج: نهاية المجموعة تمتد لنهاية التوقيت الحالي
         currentGroup.endTime = currentSlot.end;
       } else {
-        // نضيف المجموعة السابقة ونبدأ مجموعة جديدة
         merged.push({
           start: currentGroup.startTime,
           end: currentGroup.endTime,
@@ -315,7 +353,6 @@
         };
       }
     }
-    // نضيف آخر مجموعة
     merged.push({
       start: currentGroup.startTime,
       end: currentGroup.endTime,
@@ -325,22 +362,25 @@
     return merged;
   }
 
-  function renderSchedule(rows) {
+  function renderZones(rows) {
     const container = document.getElementById('mainContent');
     if (!rows || rows.length < 2) {
-      container.innerHTML = `<div class="empty-state">✨ لا توجد فعاليات مسجلة لهذا اليوم</div>`;
+      container.innerHTML = `<div class="empty-state">✨ لا توجد مناطق مسجلة لهذا اليوم</div>`;
       return;
     }
 
-    const placesData = [];
+    // تجميع البيانات حسب المنطقة (العمود A)
+    const zonesMap = new Map(); // key: اسم المنطقة, value: array of {placeName, slots}
     
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // اسم المكان من العمود B (index 1) بالضبط زي ما هو
-      let placeName = (row[1] || '').trim();
-      if (placeName === '') continue; //跳过空的地方
+      const zoneName = (row[0] || '').trim(); // العمود A - المنطقة
+      const placeName = (row[1] || '').trim(); // العمود B - المكان
       
-      // جمع كل الأنشطة مع توقيتها
+      if (zoneName === '') continue;
+      if (placeName === '') continue;
+      
+      // جمع الأنشطة للمكان الحالي
       const slotsWithTime = [];
       for (let slot of TIME_SLOTS) {
         const activity = (row[slot.col] || '').trim();
@@ -358,41 +398,76 @@
       // دمج المواعيد المتتالية
       const mergedSlots = mergeConsecutiveSlots(slotsWithTime);
       
-      // تحويل التوقيت لصيغة 12 ساعة (4:00 م بدل 16:00)
+      // تحويل التوقيت لصيغة 12 ساعة
       const formattedSlots = mergedSlots.map(slot => ({
         timeRange: `${convertTo12Hour(slot.start)} — ${convertTo12Hour(slot.end)}`,
         activity: slot.activity
       }));
       
-      placesData.push({
-        name: placeName,
+      if (!zonesMap.has(zoneName)) {
+        zonesMap.set(zoneName, []);
+      }
+      zonesMap.get(zoneName).push({
+        placeName: placeName,
         slots: formattedSlots
       });
     }
-
-    if (placesData.length === 0) {
-      container.innerHTML = `<div class="empty-state">⭐ لا توجد جداول لهذا اليوم</div>`;
+    
+    if (zonesMap.size === 0) {
+      container.innerHTML = `<div class="empty-state">⭐ لا توجد فعاليات مسجلة لهذا اليوم</div>`;
       return;
     }
-
+    
+    // عرض المناطق
     let html = '';
-    for (let place of placesData) {
+    let zoneIndex = 0;
+    for (let [zoneName, places] of zonesMap) {
       html += `
-        <div class="place-card">
-          <div class="place-title">📍 ${escapeHtml(place.name)}</div>
-          <div class="schedule-list">
-      `;
-      for (let slot of place.slots) {
-        html += `
-          <div class="slot-item">
-            <div class="slot-time">${escapeHtml(slot.timeRange)}</div>
-            <div class="slot-activity">${escapeHtml(slot.activity)}</div>
+        <div class="zone-card" data-zone-index="${zoneIndex}">
+          <div class="zone-header" onclick="toggleZone(${zoneIndex})">
+            <span>📌 ${escapeHtml(zoneName)}</span>
+            <span class="arrow">▼</span>
           </div>
+          <div class="places-container" id="zone-places-${zoneIndex}">
+      `;
+      
+      // عرض الأماكن داخل المنطقة
+      for (let place of places) {
+        html += `
+          <div class="place-card">
+            <div class="place-title">📍 ${escapeHtml(place.placeName)}</div>
+            <div class="schedule-list">
         `;
+        for (let slot of place.slots) {
+          html += `
+            <div class="slot-item">
+              <div class="slot-time">${escapeHtml(slot.timeRange)}</div>
+              <div class="slot-activity">${escapeHtml(slot.activity)}</div>
+            </div>
+          `;
+        }
+        html += `</div></div>`;
       }
+      
       html += `</div></div>`;
+      zoneIndex++;
     }
+    
     container.innerHTML = html;
+  }
+  
+  // دالة toggle للمنطقة
+  window.toggleZone = function(zoneIndex) {
+    const placesContainer = document.getElementById(`zone-places-${zoneIndex}`);
+    const zoneHeader = document.querySelector(`.zone-card[data-zone-index="${zoneIndex}"] .zone-header`);
+    
+    if (placesContainer.classList.contains('open')) {
+      placesContainer.classList.remove('open');
+      zoneHeader.classList.remove('open');
+    } else {
+      placesContainer.classList.add('open');
+      zoneHeader.classList.add('open');
+    }
   }
 
   function escapeHtml(str) {
