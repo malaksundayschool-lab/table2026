@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>جدول المهرجان 2026</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f8fafc;
+      font-family: 'Segoe UI', 'Tahoma', system-ui, -apple-system, sans-serif;
+      color: #0f172a;
+      line-height: 1.5;
+    }
+
+    .fest-header {
+      background: linear-gradient(135deg, #0f2b3d, #1e4a6e);
+      color: white;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .fest-header h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .fest-header p {
+      font-size: 0.85rem;
+      opacity: 0.85;
+      margin-top: 6px;
+    }
+
+    .days-tabs {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      scrollbar-width: thin;
+    }
+    .day-tab {
+      flex: 0 0 auto;
+      background: #f1f5f9;
+      border: none;
+      padding: 0.5rem 1.3rem;
+      border-radius: 40px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1e4a6e;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .day-tab.active {
+      background: #1e4a6e;
+      color: white;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .day-tab:hover:not(.active) {
+      background: #e2e8f0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1.2rem;
+    }
+
+    .loading-state, .error-state, .empty-state {
+      background: white;
+      border-radius: 24px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #1e4a6e;
+      border-radius: 50%;
+      margin: 0 auto 1rem;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-state { color: #b91c1c; background: #fef2f2; border-right: 4px solid #ef4444; }
+    .empty-state { color: #475569; }
+
+    .place-card {
+      background: white;
+      border-radius: 20px;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.05);
+      overflow: hidden;
+      border: 1px solid #eef2f6;
+    }
+    .place-title {
+      background: #f9fbfd;
+      padding: 0.9rem 1.2rem;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #0f2b3d;
+      border-right: 5px solid #2c7da0;
+      border-bottom: 1px solid #eef2f6;
+    }
+    .schedule-list {
+      padding: 0.2rem 0;
+    }
+    .slot-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 0.8rem 1.2rem;
+      border-bottom: 1px solid #f0f4f9;
+    }
+    .slot-time {
+      flex-shrink: 0;
+      background: #eef2ff;
+      color: #1e4a6e;
+      padding: 0.2rem 0.7rem;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      min-width: 100px;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .slot-activity {
+      font-size: 0.92rem;
+      color: #1e293b;
+      flex: 1;
+    }
+    @media (max-width: 550px) {
+      .slot-item { flex-direction: column; gap: 0.4rem; }
+      .slot-time { align-self: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="fest-header">
+  <h1>🗓️ جدول المهرجان 2026</h1>
+  <p>اختر اليوم لعرض الأماكن والفعاليات حسب التوقيت</p>
+</div>
+
+<div class="days-tabs" id="daysTabs"></div>
+<div class="container" id="mainContent">
+  <div class="loading-state"><div class="spinner"></div> جاري تحميل الجدول...</div>
+</div>
+
+<script>
+  // ======================== إعدادات جدول جوجل =========================
+  // ⚠️ هام: غيري هذا الرابط بعد نشر جدول جوجل للعامة
+  const PUBLISHED_SHEET_ID = '2PACX-1vTdDkDQecOWbCYWDBkM_cwIUcuLnLmUdd-XpQygB4hONKZVWNv0D9dSHMksJM-0SFcoX3eg-NudZ8_u';
+  
+  // أيام الأسبوع وأرقام الـ gid - غيري الأرقام حسب جدولك الفعلي
+  const DAYS_CONFIG = [
+    { name: 'الأحد',     gid: '850760714' },
+    { name: 'الاثنين',   gid: '932787312' },
+    { name: 'الثلاثاء',  gid: '1503210940' },
+    { name: 'الأربعاء',  gid: '1910930279' },
+    { name: 'الخميس',    gid: '1245396104' },
+    { name: 'الجمعة',    gid: '677980056' },
+    { name: 'السبت',     gid: '981087448' }
+  ];
+  
+  // التوقيتات (الأعمدة من C إلى O)
+  const TIME_SLOTS = [
+    { col: 2, label: '9:00 – 10:00 ص' },
+    { col: 3, label: '10:00 – 11:00 ص' },
+    { col: 4, label: '11:00 – 12:00 م' },
+    { col: 5, label: '12:00 – 1:00 م' },
+    { col: 6, label: '1:00 – 2:00 م' },
+    { col: 7, label: '2:00 – 3:00 م' },
+    { col: 8, label: '3:00 – 4:00 م' },
+    { col: 9, label: '4:00 – 5:00 م' },
+    { col: 10, label: '5:00 – 6:00 م' },
+    { col: 11, label: '6:00 – 7:00 م' },
+    { col: 12, label: '7:00 – 8:00 م' },
+    { col: 13, label: '8:00 – 9:00 م' },
+    { col: 14, label: '9:00 – 10:00 م' }
+  ];
+  // =================================================================
+
+  let currentDayIndex = 0;
+  let dataCache = {};
+
+  function buildDayTabs() {
+    const tabsContainer = document.getElementById('daysTabs');
+    tabsContainer.innerHTML = '';
+    DAYS_CONFIG.forEach((day, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'day-tab' + (idx === 0 ? ' active' : '');
+      btn.textContent = day.name;
+      btn.addEventListener('click', () => {
+        if (currentDayIndex === idx) return;
+        currentDayIndex = idx;
+        document.querySelectorAll('.day-tab').forEach((tab, i) => {
+          tab.classList.toggle('active', i === idx);
+        });
+        loadDaySchedule(idx);
+      });
+      tabsContainer.appendChild(btn);
+    });
+  }
+
+  async function loadDaySchedule(dayIdx) {
+    const container = document.getElementById('mainContent');
+    if (dataCache[dayIdx]) {
+      renderSchedule(dataCache[dayIdx]);
+      return;
+    }
+
+    container.innerHTML = `<div class="loading-state"><div class="spinner"></div> جاري تحميل جدول ${DAYS_CONFIG[dayIdx].name}...</div>`;
+    
+    const sheetGid = DAYS_CONFIG[dayIdx].gid;
+    if (!sheetGid) {
+      container.innerHTML = `<div class="error-state">⚠️ رقم الـ gid لـ ${DAYS_CONFIG[dayIdx].name} غير محدد.</div>`;
+      return;
+    }
+
+    const csvUrl = `https://docs.google.com/spreadsheets/d/e/${PUBLISHED_SHEET_ID}/pub?gid=${sheetGid}&single=true&output=csv`;
+    
+    try {
+      const response = await fetch(csvUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const csvText = await response.text();
+      const parsedRows = parseCSV(csvText);
+      if (!parsedRows || parsedRows.length < 2) {
+        container.innerHTML = `<div class="empty-state">📭 لا توجد بيانات كافية في جدول ${DAYS_CONFIG[dayIdx].name}</div>`;
+        return;
+      }
+      dataCache[dayIdx] = parsedRows;
+      renderSchedule(parsedRows);
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = `<div class="error-state">❌ فشل تحميل البيانات. تأكدي من نشر الجدول للعامة (ملف → مشاركة → نشر على الويب)</div>`;
+    }
+  }
+
+  function parseCSV(csvString) {
+    const rows = [];
+    const lines = csvString.split(/\r?\n/);
+    for (let line of lines) {
+      if (line.trim() === '') continue;
+      const row = [];
+      let insideQuotes = false;
+      let current = '';
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          insideQuotes = !insideQuotes;
+        } else if (ch === ',' && !insideQuotes) {
+          row.push(current.trim());
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+      row.push(current.trim());
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function renderSchedule(rows) {
+    const container = document.getElementById('mainContent');
+    if (!rows || rows.length < 2) {
+      container.innerHTML = `<div class="empty-state">✨ لا توجد فعاليات مسجلة لهذا اليوم</div>`;
+      return;
+    }
+
+    const placesData = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      let placeName = (row[0] || '').trim();
+      if (!placeName && row[1]) placeName = row[1].trim();
+      if (placeName === '') continue;
+      
+      const activitiesList = [];
+      for (let slot of TIME_SLOTS) {
+        const activity = (row[slot.col] || '').trim();
+        if (activity !== '') {
+          activitiesList.push({
+            timeLabel: slot.label,
+            activityText: activity
+          });
+        }
+      }
+      if (activitiesList.length === 0) continue;
+      
+      placesData.push({
+        name: placeName,
+        slots: activitiesList
+      });
+    }
+
+    if (placesData.length === 0) {
+      container.innerHTML = `<div class="empty-state">⭐ لا توجد جداول لهذا اليوم</div>`;
+      return;
+    }
+
+    let html = '';
+    for (let place of placesData) {
+      html += `
+        <div class="place-card">
+          <div class="place-title">📍 ${escapeHtml(place.name)}</div>
+          <div class="schedule-list">
+      `;
+      for (let slot of place.slots) {
+        html += `
+          <div class="slot-item">
+            <div class="slot-time">${escapeHtml(slot.timeLabel)}</div>
+            <div class="slot-activity">${escapeHtml(slot.activityText)}</div>
+          </div>
+        `;
+      }
+      html += `</div></div>`;
+    }
+    container.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  }
+
+  function init() {
+    buildDayTabs();
+    loadDaySchedule(0);
+  }
+
+  init();
+</script>
+</body>
+</html>
