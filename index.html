@@ -72,7 +72,7 @@
     }
 
     .container {
-      max-width: 900px;
+      max-width: 950px;
       margin: 0 auto;
       padding: 1.2rem;
     }
@@ -138,8 +138,8 @@
       background: #f9fbfd;
     }
     .places-container.open {
-      max-height: 2000px;
-      transition: max-height 0.5s ease-in;
+      max-height: 3000px;
+      transition: max-height 0.6s ease-in;
     }
     
     .place-card {
@@ -374,11 +374,14 @@
     
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const zoneName = (row[0] || '').trim(); // العمود A - المنطقة
+      let zoneName = (row[0] || '').trim(); // العمود A - المنطقة
       const placeName = (row[1] || '').trim(); // العمود B - المكان
       
       if (zoneName === '') continue;
       if (placeName === '') continue;
+      
+      // إضافة كلمة "منطقة" قبل اسم المنطقة
+      zoneName = `منطقة ${zoneName}`;
       
       // جمع الأنشطة للمكان الحالي
       const slotsWithTime = [];
@@ -431,7 +434,7 @@
           <div class="places-container" id="zone-places-${zoneIndex}">
       `;
       
-      // عرض الأماكن داخل المنطقة
+      // عرض جميع الأماكن داخل المنطقة (كل الأماكن اللي جنبها)
       for (let place of places) {
         html += `
           <div class="place-card">
