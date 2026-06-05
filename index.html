@@ -132,7 +132,7 @@
       border-radius: 30px;
       font-size: 0.75rem;
       font-weight: 700;
-      min-width: 100px;
+      min-width: 110px;
       text-align: center;
       line-height: 1.4;
     }
@@ -177,19 +177,19 @@
   
   // التوقيتات (الأعمدة من C إلى O)
   const TIME_SLOTS = [
-    { col: 2, label: '9:00 – 10:00 ص' },
-    { col: 3, label: '10:00 – 11:00 ص' },
-    { col: 4, label: '11:00 – 12:00 م' },
-    { col: 5, label: '12:00 – 1:00 م' },
-    { col: 6, label: '1:00 – 2:00 م' },
-    { col: 7, label: '2:00 – 3:00 م' },
-    { col: 8, label: '3:00 – 4:00 م' },
-    { col: 9, label: '4:00 – 5:00 م' },
-    { col: 10, label: '5:00 – 6:00 م' },
-    { col: 11, label: '6:00 – 7:00 م' },
-    { col: 12, label: '7:00 – 8:00 م' },
-    { col: 13, label: '8:00 – 9:00 م' },
-    { col: 14, label: '9:00 – 10:00 م' }
+    { col: 2, start: '9:00', end: '10:00', label: '9:00 – 10:00 ص' },
+    { col: 3, start: '10:00', end: '11:00', label: '10:00 – 11:00 ص' },
+    { col: 4, start: '11:00', end: '12:00', label: '11:00 – 12:00 م' },
+    { col: 5, start: '12:00', end: '13:00', label: '12:00 – 1:00 م' },
+    { col: 6, start: '13:00', end: '14:00', label: '1:00 – 2:00 م' },
+    { col: 7, start: '14:00', end: '15:00', label: '2:00 – 3:00 م' },
+    { col: 8, start: '15:00', end: '16:00', label: '3:00 – 4:00 م' },
+    { col: 9, start: '16:00', end: '17:00', label: '4:00 – 5:00 م' },
+    { col: 10, start: '17:00', end: '18:00', label: '5:00 – 6:00 م' },
+    { col: 11, start: '18:00', end: '19:00', label: '6:00 – 7:00 م' },
+    { col: 12, start: '19:00', end: '20:00', label: '7:00 – 8:00 م' },
+    { col: 13, start: '20:00', end: '21:00', label: '8:00 – 9:00 م' },
+    { col: 14, start: '21:00', end: '22:00', label: '9:00 – 10:00 م' }
   ];
   // =================================================================
 
@@ -274,6 +274,56 @@
     return rows;
   }
 
+  // دالة جديدة لدمج المواعيد المتتالية لنفس النشاط
+  function mergeConsecutiveSlots(slots) {
+    if (slots.length === 0) return [];
+    
+    const merged = [];
+    let currentGroup = {
+      startTime: slots[0].start,
+      endTime: slots[0].end,
+      activity: slots[0].activity,
+      startLabel: slots[0].startLabel,
+      endLabel: slots[0].endLabel
+    };
+    
+    for (let i =1; i < slots.length; i++) {
+      const currentSlot = slots[i];
+      // لو نفس النشاط والتوقيت متتالي (نهاية السابق = بداية التالي)
+      if (currentSlot.activity === currentGroup.activity && currentSlot.start === currentGroup.endTime) {
+        // ندمج: نهاية المجموعة تمتد لنهاية التوقيت الحالي
+        currentGroup.endTime = currentSlot.end;
+        currentGroup.endLabel = currentSlot.endLabel;
+      } else {
+        // نضيف المجموعة السابقة ونبدأ مجموعة جديدة
+        merged.push({
+          start: currentGroup.startTime,
+          end: currentGroup.endTime,
+          activity: currentGroup.activity,
+          startLabel: currentGroup.startLabel,
+          endLabel: currentGroup.endLabel
+        });
+        currentGroup = {
+          startTime: currentSlot.start,
+          endTime: currentSlot.end,
+          activity: currentSlot.activity,
+          startLabel: currentSlot.startLabel,
+          endLabel: currentSlot.endLabel
+        };
+      }
+    }
+    // نضيف آخر مجموعة
+    merged.push({
+      start: currentGroup.startTime,
+      end: currentGroup.endTime,
+      activity: currentGroup.activity,
+      startLabel: currentGroup.startLabel,
+      endLabel: currentGroup.endLabel
+    });
+    
+    return merged;
+  }
+
   function renderSchedule(rows) {
     const container = document.getElementById('mainContent');
     if (!rows || rows.length < 2) {
@@ -282,27 +332,43 @@
     }
 
     const placesData = [];
+    
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
+      // اسم المكان بالضبط زي ما هو في العمود A (index 0)
       let placeName = (row[0] || '').trim();
-      if (!placeName && row[1]) placeName = row[1].trim();
-      if (placeName === '') continue;
+      if (placeName === '') continue; //跳过空的地方
       
-      const activitiesList = [];
+      // جمع كل الأنشطة مع توقيتها
+      const slotsWithTime = [];
       for (let slot of TIME_SLOTS) {
         const activity = (row[slot.col] || '').trim();
         if (activity !== '') {
-          activitiesList.push({
-            timeLabel: slot.label,
-            activityText: activity
+          slotsWithTime.push({
+            start: slot.start,
+            end: slot.end,
+            activity: activity,
+            startLabel: slot.start,
+            endLabel: slot.end,
+            originalLabel: slot.label
           });
         }
       }
-      if (activitiesList.length === 0) continue;
+      
+      if (slotsWithTime.length === 0) continue;
+      
+      // دمج المواعيد المتتالية
+      const mergedSlots = mergeConsecutiveSlots(slotsWithTime);
+      
+      // تحويل التوقيت للصيغة المطلوبة (مثلاً 6:00 — 8:00)
+      const formattedSlots = mergedSlots.map(slot => ({
+        timeRange: `${slot.startLabel} — ${slot.endLabel}`,
+        activity: slot.activity
+      }));
       
       placesData.push({
         name: placeName,
-        slots: activitiesList
+        slots: formattedSlots
       });
     }
 
@@ -321,8 +387,8 @@
       for (let slot of place.slots) {
         html += `
           <div class="slot-item">
-            <div class="slot-time">${escapeHtml(slot.timeLabel)}</div>
-            <div class="slot-activity">${escapeHtml(slot.activityText)}</div>
+            <div class="slot-time">${escapeHtml(slot.timeRange)}</div>
+            <div class="slot-activity">${escapeHtml(slot.activity)}</div>
           </div>
         `;
       }
